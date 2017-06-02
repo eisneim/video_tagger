@@ -29,6 +29,9 @@ class ModelConfig(object):
     # Must be provided in training and evaluation modes.
     self.input_file_pattern = None
 
+    # when use nmpy as input, skip image decoding
+    self.skip_decode = False
+
     # Image format ("jpeg" or "png").
     self.image_format = "jpeg"
 

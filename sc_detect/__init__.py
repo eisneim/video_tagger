@@ -155,12 +155,12 @@ def detect_scenes_file(path, scene_manager):
             frames_list[0], frames_list[1], frames_list[2])
 
     # Perform scene detection on cap object (modifies scene_list).
-    frames_read, frames_processed = detect_scenes(
+    frames_read, frames_processed, frames = detect_scenes(
         cap, scene_manager, file_name, start_frame, end_frame, duration_frames)
 
     # Cleanup and return number of frames we read/processed.
     cap.release()
-    return (video_fps, frames_read, frames_processed)
+    return (video_fps, frames_read, frames_processed, frames)
 
 
 def detect_scenes(cap, scene_manager, image_path_prefix = '', start_frame = 0,
@@ -187,6 +187,7 @@ def detect_scenes(cap, scene_manager, image_path_prefix = '', start_frame = 0,
     frames_processed = 0
     frame_metrics = {}
     last_frame = None       # Holds previous frame if needed for save_images.
+    frames = []
 
     perf_show = True
     perf_last_update_time = time.time()
@@ -267,6 +268,8 @@ def detect_scenes(cap, scene_manager, image_path_prefix = '', start_frame = 0,
                 perf_last_update_time = curr_time
                 perf_last_framecount = frames_read
                 print("[Pysc_detect] Current Processing Speed: %3.1f FPS" % perf_curr_rate)
+
+
         # save images on scene cuts/breaks if requested (scaled if using -df)
         if scene_manager.save_images and cut_found:
             save_preview_images(
@@ -278,13 +281,17 @@ def detect_scenes(cap, scene_manager, image_path_prefix = '', start_frame = 0,
 
         del last_frame
         last_frame = im_cap.copy()
+        # append scene image frame
+        if cut_found:
+            frames.append(im_cap.copy())
+
     # perform any post-processing required by the detectors being used
     for detector in scene_manager.detector_list:
         detector.post_process(scene_manager.scene_list)
 
     if start_frame > 0:
         frames_read = frames_read - start_frame
-    return (frames_read, frames_processed)
+    return (frames_read, frames_processed, frames)
 
 
 def save_preview_images(scene_manager, image_path_prefix, im_curr, im_last, num_scenes):

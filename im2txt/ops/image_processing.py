@@ -66,7 +66,8 @@ def process_image(encoded_image,
                   resize_height=346,
                   resize_width=346,
                   thread_id=0,
-                  image_format="jpeg"):
+                  image_format="jpeg",
+                  skip_decode=False):
   """Decode an image, resize and apply random distortions.
 
   In training, images are distorted slightly differently depending on thread_id.
@@ -94,14 +95,18 @@ def process_image(encoded_image,
     if not thread_id:
       tf.summary.image(name, tf.expand_dims(image, 0))
 
-  # Decode image into a float32 Tensor of shape [?, ?, 3] with values in [0, 1).
-  with tf.name_scope("decode", values=[encoded_image]):
-    if image_format == "jpeg":
-      image = tf.image.decode_jpeg(encoded_image, channels=3)
-    elif image_format == "png":
-      image = tf.image.decode_png(encoded_image, channels=3)
-    else:
-      raise ValueError("Invalid image format: %s" % image_format)
+  if skip_decode:
+    image = encoded_image
+  else:
+    # Decode image into a float32 Tensor of shape [?, ?, 3] with values in [0, 1).
+    with tf.name_scope("decode", values=[encoded_image]):
+      if image_format == "jpeg":
+        image = tf.image.decode_jpeg(encoded_image, channels=3)
+      elif image_format == "png":
+        image = tf.image.decode_png(encoded_image, channels=3)
+      else:
+        raise ValueError("Invalid image format: %s" % image_format)
+
   image = tf.image.convert_image_dtype(image, dtype=tf.float32)
   image_summary("original_image", image)
 

@@ -37,7 +37,7 @@ def detect(filePath, format="FRAME", thumb_path=""):
   # Use above to initialize scene manager.
   smgr = sc_detect.manager.SceneManager(args, scene_detectors)
   # Scenes will be added to this list in detect_scenes().
-  fps, frames_read, frames_processed = sc_detect.detect_scenes_file(filePath, smgr)
+  fps, frames_read, frames_processed, frames = sc_detect.detect_scenes_file(filePath, smgr)
 
   # create new list with scene boundaries in milliseconds instead of frame #.
   scene_list_msec = [(1000.0 * x) / float(fps) \
@@ -53,4 +53,4 @@ def detect(filePath, format="FRAME", thumb_path=""):
   else:
     results = smgr.scene_list
 
-  return fps, frames_read, results
+  return fps, frames_read, results, frames

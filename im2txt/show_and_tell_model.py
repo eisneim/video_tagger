@@ -100,7 +100,7 @@ class ShowAndTellModel(object):
     """Returns true if the model is built for training mode."""
     return self.mode == "train"
 
-  def process_image(self, encoded_image, thread_id=0):
+  def process_image(self, encoded_image, thread_id=0, skip_decode=False):
     """Decodes and processes an image string.
 
     Args:
@@ -116,7 +116,8 @@ class ShowAndTellModel(object):
                                           height=self.config.image_height,
                                           width=self.config.image_width,
                                           thread_id=thread_id,
-                                          image_format=self.config.image_format)
+                                          image_format=self.config.image_format,
+                                          skip_decode=skip_decode)
 
   def build_inputs(self):
     """Input prefetching, preprocessing and batching.
@@ -129,13 +130,19 @@ class ShowAndTellModel(object):
     """
     if self.mode == "inference":
       # In inference mode, images and inputs are fed via placeholders.
-      image_feed = tf.placeholder(dtype=tf.string, shape=[], name="image_feed")
+      if self.config.skip_decode:
+        width = self.config.image_width
+        height = self.config.image_height
+        image_feed = tf.placeholder(dtype=tf.uint8, shape=[height, width, 3], name="image_feed")
+      else:
+        image_feed = tf.placeholder(dtype=tf.string, shape=[], name="image_feed")
+
       input_feed = tf.placeholder(dtype=tf.int64,
                                   shape=[None],  # batch_size
                                   name="input_feed")
 
       # Process image and insert batch dimensions.
-      images = tf.expand_dims(self.process_image(image_feed), 0)
+      images = tf.expand_dims(self.process_image(image_feed, skip_decode=self.config.skip_decode), 0)
       input_seqs = tf.expand_dims(input_feed, 1)
 
       # No target sequences or input mask in inference mode.
