@@ -2,19 +2,34 @@ import cv2
 import numpy as np
 import os
 import argparse
+import logging
 
+import vconfig
 import scene_detect
 import batch_im2txt
 
-VOCABFILE = "word_counts.txt"
-CHECKPOINT_DIR = ("/Users/eisneim/www/deepLearning/"
-  "_pre_trained_model/im2txt/model.ckpt-2000000")
+# ----------- configure logging ---------
+log = logging.getLogger("vtr")
+log.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+# %(name)s -
+formatter = logging.Formatter('%(asctime)s %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+
+log.addHandler(ch)
+# ------  end of configure logging ---------
+
+config = vconfig.VConfig()
+
 
 def main():
-  # video = "testData/video.mp4"
-  video = "/Volumes/raid/work/2017.3/yoloDemo/testVideo.mp4"
-  rootPath = os.path.dirname(os.path.realpath(__file__))
-  thumb_path = os.path.join(rootPath, "thumbs/")
+  video = "testData/video.mp4"
+  # video = "/Volumes/raid/work/2017.3/yoloDemo/testVideo.mp4"
+  config.rootPath = os.path.dirname(os.path.realpath(__file__))
+  thumb_path = os.path.join(config.rootPath, "thumbs/")
+  config.thumb_path = thumb_path
+
   if not os.path.exists(thumb_path):
     os.mkdir(thumb_path)
 
@@ -25,7 +40,7 @@ def main():
   print(scenes)
 
   # build tensorflow graph first
-  batch_im2txt.build_graph(VOCABFILE, CHECKPOINT_DIR)
+  batch_im2txt.build_graph(config.VOCABFILE, config.CHECKPOINT_DIR)
   captions = batch_im2txt.describe(frames)
 
 
