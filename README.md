@@ -6,6 +6,8 @@ video content analyzing and scene Tagging using computer vision and convolutiona
  - object detection(yolo9000)
  - image captioning(im2txt)
  - action recongnition(c3d model)
+ - face detection(facenet)
+ - age detection
 
 ### dependencies
  - tensorflow 1.0
