@@ -11,7 +11,7 @@ video content analyzing and scene Tagging using computer vision and convolutiona
 
 ### dependencies
  - tensorflow 1.0
- - opencv3 python
+ - opencv3
  - numpy
 
 ### install thirdparty libs

@@ -6,6 +6,9 @@ class VConfig:
     if not os.path.exists(config_path):
       raise "config.conf does not found in root dir"
 
+    self.max_cal_width = None
+    self.max_cal_height = None
+
     # config_dict = {}
     with open(config_path, "r") as ff:
       for line in ff:
@@ -22,6 +25,7 @@ class VConfig:
 
     self.rootPath = None
     self.thumb_path = None
+
 
 
 if __name__ == "__main__":

@@ -30,17 +30,17 @@
 
 # Standard Library Imports
 from __future__ import print_function
-import sys
-import os
-import argparse
-import time
+# import sys
+# import os
+# import argparse
+# import time
 import csv
 
 # Pysc_detect Library Imports
-import sc_detect
+# import sc_detect
 
 # Third-Party Library Imports
-import cv2
+# import cv2
 import numpy
 
 
