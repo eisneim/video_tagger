@@ -23,8 +23,8 @@ class VConfig:
         print("{} = {}".format(pair[0], pair[1]))
         setattr(self, pair[0], pair[1])
 
-    self.rootPath = None
-    self.thumb_path = None
+    self.rootPath = os.path.dirname(os.path.realpath(__file__))
+    self.thumb_path = os.path.join(self.rootPath, "thumbs/")
 
 
 

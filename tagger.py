@@ -41,4 +41,4 @@ class VideoTagger:
 
 
   def step(self):
-
+    pass

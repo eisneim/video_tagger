@@ -1,4 +1,4 @@
-#! /usr/bin/shell
+#!/usr/bin/env bash
 
 # activates the debugger, activates the automatic reloader
 export FLASK_DEBUG=1
