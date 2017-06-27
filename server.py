@@ -5,10 +5,11 @@ from flask import Flask, request, render_template, \
   abort, \
   send_from_directory
 from werkzeug.utils import secure_filename
-
+from flask_pymongo import PyMongo
 
 from tagger import VideoTagger
 import vconfig
+from types import SimpleNamespace
 
 # ----------- configure logging ---------
 log = logging.getLogger("vtr")
@@ -21,12 +22,25 @@ ch.setFormatter(formatter)
 
 log.addHandler(ch)
 # ------  end of configure logging ---------
+
 # initialize the server
 serverApp = Flask(__name__)
 
 config = vconfig.VConfig()
 log.info("root path: {}".format(config.rootPath))
 serverApp.config["UPLOAD_FOLDER"] = config.rootPath + "/uploads/"
+
+# --- setup mongodb ------
+serverApp.config["MONGO_DBNAME"] = "videoTagger"
+serverApp.config["MONGO_URI"] = "mongodb://localhost:27017/videoTagger"
+mongo = PyMongo(serverApp)
+
+
+# https://stackoverflow.com/questions/2827623/python-create-object-and-add-attributes-to-it
+# create a ctx object to hold references
+# ctx = SimpleNamespace()
+# ctx.app = serverApp
+
 
 # initialize our neural networks
 # tagger = VideoTagger(config=config)
@@ -105,18 +119,18 @@ def upload():
       return jsonify({
           "err": "no video uploaded, make sure the key of file form is 'video'"
         })
-    ff = request.files["video"]
+    file = request.files["video"]
     print("-----------file-------")
-    print(dir(ff))
+    print(dir(file))
     # if user does not select file, browser also
     # submit a empty part without filename
     if file.filename == '':
         return jsonify({
           "err": "'video' form field is empty"
         })
-    if ff and allowed_file(file.filename):
+    if file and allowed_file(file.filename):
       filename = secure_filename(file.filename)
-      ff.save(config.rootPath + "/uploads/" + filename)
+      file.save(config.rootPath + "/uploads/" + filename)
       return jsonify(err=None, success=1)
 
   return jsonify({
