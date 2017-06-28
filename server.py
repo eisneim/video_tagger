@@ -40,15 +40,16 @@ mongo = PyMongo(serverApp)
 # RequestEntityTooLarge exception will thrown for larger file
 serverApp.config['MAX_CONTENT_LENGTH'] = 800 * 1024 * 1024
 
+# initialize our neural networks
+tagger = VideoTagger(config=config)
+
 # https://stackoverflow.com/questions/2827623/python-create-object-and-add-attributes-to-it
 # create a ctx object to hold references
 ctx = SimpleNamespace()
 ctx.app = serverApp
 ctx.mongo = mongo
 ctx.config = config
-
-# initialize our neural networks
-# tagger = VideoTagger(config=config)
+ctx.tagger = tagger
 
 routes(ctx)
 

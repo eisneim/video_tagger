@@ -5,9 +5,11 @@ from flask import Flask, request, render_template, \
   send_from_directory
 from werkzeug.utils import secure_filename
 
+import datetime
+import logging
 
 ALLOWED_EXTENSIONS = set(["mp4", "flv", "avi", "mov", "mkv", "webm", "ogv"])
-
+log = logging.getLogger("vtr")
 
 def allowed_file(filename):
   return "." in filename and \
@@ -85,7 +87,7 @@ def routes(ctx):
           })
       file = request.files["video"]
       print("-----------file-------")
-      print(dir(file))
+      log.info("{}:{}".format(file.filename, file.content_type))
       # if user does not select file, browser also
       # submit a empty part without filename
       if file.filename == '':
@@ -93,9 +95,10 @@ def routes(ctx):
             "err": "'video' form field is empty"
           })
       if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
+        datestr = datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
+        filename = datestr + "_" + secure_filename(file.filename)
         file.save(config.rootPath + "/uploads/" + filename)
-        return jsonify(err=None, success=1)
+        return jsonify(err=None, success=1, filename=filename)
 
     return jsonify({
         "err": "invalid filename"
