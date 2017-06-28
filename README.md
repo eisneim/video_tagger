@@ -1,4 +1,4 @@
-videoTagger
+videoTagger(working in progress)
 --------
 video content analyzing and scene Tagging using computer vision and convolutional nerual networks.
 

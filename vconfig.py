@@ -8,6 +8,7 @@ class VConfig:
 
     self.max_cal_width = None
     self.max_cal_height = None
+    self.frame_skip = None
 
     # config_dict = {}
     with open(config_path, "r") as ff:
