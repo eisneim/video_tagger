@@ -48,9 +48,20 @@ class VideoParserState(object):
     self.allScaledFrames.append(self.scaledFrame)
 
 
-
 class VideoTagger:
+  """add tags to video scnenes
 
+  perform scene segmentation; for each scene, find all tags to describe
+  this scene, those tags can be used for video searching
+
+  Variables:
+    config {object} -- [description]
+    config.max_cal_width {number} -- max frame width for frame differience
+    config.max_cal_height {number} -- [description]
+    config.max_pred_width {number} -- max frame width for object detection
+    config.max_pred_height {number} -- [description]
+    config.frame_skip {number} -- skip frames to get faster performance
+  """
   def __init__(self, config):
     self.config = config
     self.detector = ContentDetector(threshold=30, minFrames=15)
@@ -109,6 +120,8 @@ class VideoTagger:
       skip = int(self.config.frame_skip)
 
     self.state.frameNum = 0
+    # used for storing each frame's metrics
+    # those metrics params depending on which detector you use.
     self.frameMetrics = {}
     self.sceneList = []
 
@@ -132,7 +145,7 @@ class VideoTagger:
       self.state.frameNum += 1
 
   def tick(self, frame):
-
+    # frameMatrics
     if self.state.frameNum not in self.frameMetrics:
       self.frameMetrics[self.state.frameNum] = {}
 
@@ -149,9 +162,15 @@ class VideoTagger:
   def sceneDetected(self):
     self.state.scenes.append(self.state.frameNum)
     # should find best frame to represent this scene
-
+    # currently using the dumbest way, which is using the middle frame
+    # @TODO: better way to find representative frame
+    midIndex = len(self.state.currentSceneFrames) // 2
+    dominateFrame = self.state.currentSceneFrames[midIndex]
     # empty scenFrames buffer
     self.state.currentSceneFrames = []
+    # >>> should start object detection on dominateFrame
+
+
 
 if __name__ == "__main__":
   from types import SimpleNamespace

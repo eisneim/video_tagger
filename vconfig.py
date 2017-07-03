@@ -11,6 +11,7 @@ class VConfig:
     self.max_pred_width = None
     self.max_pred_height = None
     self.frame_skip = 1
+    self.TF_MODEL_FOLDER = None
 
     # config_dict = {}
     with open(config_path, "r") as ff:
