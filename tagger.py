@@ -10,12 +10,11 @@ log = logging.getLogger("vtr")
 
 
 class VideoParserState(object):
-  def __init__(self, donwScaleFactor=1):
+  def __init__(self, donwScaleFactor=1, predDonwScaleFactor=1):
     self._currentFrame = None
     self.frameNum = 0
     self.lastSceneFrameNum = 0
     self.scenes = []
-    self.downscale_factor = 1
     # only store scaled frame to save memory space
     self.allScaledFrames = []
     # buffer of frames, if new scene is detected
@@ -24,6 +23,10 @@ class VideoParserState(object):
     # a scene
     self.currentSceneFrames = []
     self.donwScaleFactor = donwScaleFactor
+    self.predDonwScaleFactor = predDonwScaleFactor
+    print("donwScaleFactor: {}, predDonwScaleFactor: {}".format(
+      donwScaleFactor,
+      predDonwScaleFactor))
 
   @property
   def currentFrame(self):
@@ -33,19 +36,17 @@ class VideoParserState(object):
   def currentFrame(self, frame):
     self._currentFrame = frame
     self.scaledFrame = frame
-    if self.downscale_factor > 1:
-      self.scaledFrame = frame[::self.downscale_factor, ::self.downscale_factor, :]
+    if self.donwScaleFactor > 1:
+      self.scaledFrame = frame[::self.donwScaleFactor, ::self.donwScaleFactor, :]
+
+    if self.predDonwScaleFactor > 1:
+      predFrame = frame[::self.predDonwScaleFactor, ::self.predDonwScaleFactor, :]
+      self.currentSceneFrames.append(predFrame)
+    else:
+      self.currentSceneFrames.append(frame)
 
     self.allScaledFrames.append(self.scaledFrame)
-    self.currentSceneFrames.append(frame)
 
-  def sceneDetected(self):
-
-
-    # should find best frame to represent this scene
-
-    # empty scenFrames buffer
-    self.currentSceneFrames = []
 
 
 class VideoTagger:
@@ -79,8 +80,21 @@ class VideoTagger:
       self.donwScaleFactor = round(1 / scaleFactor)
       log.info("donwScaleFactor: {}".format(self.donwScaleFactor))
 
+    # donw-scale frame size for object detection
+    if self.config.max_pred_width:
+      self.config.max_pred_width = int(self.config.max_pred_width)
+      self.config.max_pred_height = int(self.config.max_pred_height)
+      scaleFactor = ratio_scale_factor(self.videoWidth,
+        self.videoHeight,
+        self.config.max_pred_width,
+        self.config.max_pred_height)
+      print("scaleFactor:", scaleFactor, round(1 / scaleFactor))
+      self.predDonwScaleFactor = round(1 / scaleFactor)
+      log.info("predDonwScaleFactor: {}".format(self.donwScaleFactor))
+
     # store parsing state
-    self.state = VideoParserState(self.donwScaleFactor)
+    self.state = VideoParserState(self.donwScaleFactor,
+      self.predDonwScaleFactor)
 
     # main loop
     self.loop(cap)
@@ -129,23 +143,35 @@ class VideoTagger:
       self.sceneList)
 
     if isCutFound:
-      self.state.sceneDetected()
+      self.sceneDetected()
       print("cut found at: {}".format(self.state.frameNum))
 
+  def sceneDetected(self):
+    self.state.scenes.append(self.state.frameNum)
+    # should find best frame to represent this scene
+
+    # empty scenFrames buffer
+    self.state.currentSceneFrames = []
 
 if __name__ == "__main__":
   from types import SimpleNamespace
   config = SimpleNamespace()
   config.max_cal_width = "320"
   config.max_cal_height = "480"
+  config.max_pred_width = 640
+  config.max_pred_height = 720
   config.frame_skip = 2
 
   tagger = VideoTagger(config)
   testVdieo = "testData/video.mp4"
   err, state = tagger.parse(testVdieo)
   print("err: ", err)
-  print("allScaledFrames: {}".format(len(state.allScaledFrames)))
-  print("currentSceneFrames: {}".format(len(state.currentSceneFrames)))
+  print("allScaledFrames: {}, shape:{}".format(
+    len(state.allScaledFrames),
+    state.allScaledFrames[0].shape))
+  print("currentSceneFrames: {}, shape:{}".format(
+    len(state.currentSceneFrames),
+    state.currentSceneFrames[0].shape))
   print("scenes: {}".format(state.scenes))
   print("self.sceneList: ", tagger.sceneList)
 
