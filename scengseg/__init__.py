@@ -17,17 +17,5 @@ class SceneSeg(object):
     pass
 
 
-class ContentDetector(SceneSeg):
-  def __init__(self, threshold=30, minFrames=15):
-    super(ContentDetector, self).__init__()
-
-    self.threshold = threshold
-    self.minFrames = minFrames
-    self.lastFrame = None
-    self.lastSceneFrameNum = None
-    self.lastHSV = None
-
-  def process_frame(self, frameNum, frameImg, frameMetrics, sceneList):
-    pass
 
 

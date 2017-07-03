@@ -4,6 +4,7 @@ import os
 import logging
 
 from utils.util_img import ratio_scale_factor
+from sceneseg.content_detector import ContentDetector
 
 log = logging.getLogger("vtr")
 
