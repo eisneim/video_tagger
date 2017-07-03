@@ -9,12 +9,13 @@ from sceneseg.content_detector import ContentDetector
 log = logging.getLogger("vtr")
 
 
-class VideoParserState:
+class VideoParserState(object):
   def __init__(self, donwScaleFactor=1):
     self._currentFrame = None
     self.frameNum = 0
     self.lastSceneFrameNum = 0
     self.scenes = []
+    self.downscale_factor = 1
     # only store scaled frame to save memory space
     self.allScaledFrames = []
     # buffer of frames, if new scene is detected
@@ -28,7 +29,7 @@ class VideoParserState:
   def currentFrame(self):
     return self._currentFrame
 
-  @property.setter
+  @currentFrame.setter
   def currentFrame(self, frame):
     self._currentFrame = frame
     self.scaledFrame = frame
@@ -51,10 +52,11 @@ class VideoTagger:
 
   def __init__(self, config):
     self.config = config
+    self.detector = ContentDetector(threshold=30, minFrames=15)
 
   def parse(self, videoPath):
 
-    cap = cv2.VideoCapture
+    cap = cv2.VideoCapture()
 
     # @TODO: caught errors
     cap.open(videoPath)
@@ -65,7 +67,7 @@ class VideoTagger:
 
     self.videoWidth = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     self.videoHeight = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    self.videoFps = cap.get(cv2.CAP_PROP_FRAME_FPS)
+    self.videoFps = cap.get(cv2.CAP_PROP_FPS)
     # perform the down-scale step
     if self.config.max_cal_width:
       self.config.max_cal_width = int(self.config.max_cal_width)
@@ -93,6 +95,8 @@ class VideoTagger:
       skip = int(self.config.frame_skip)
 
     self.state.frameNum = 0
+    self.frameMetrics = {}
+    self.sceneList = []
 
     while cap.isOpened():
       # frame skip is set, should drop corespond frames
@@ -114,4 +118,35 @@ class VideoTagger:
       self.state.frameNum += 1
 
   def tick(self, frame):
-    pass
+
+    if self.state.frameNum not in self.frameMetrics:
+      self.frameMetrics[self.state.frameNum] = {}
+
+    isCutFound = self.detector.process_frame(
+      self.state.frameNum,
+      frame,
+      self.frameMetrics,
+      self.sceneList)
+
+    if isCutFound:
+      self.state.sceneDetected()
+      print("cut found at: {}".format(self.state.frameNum))
+
+
+if __name__ == "__main__":
+  from types import SimpleNamespace
+  config = SimpleNamespace()
+  config.max_cal_width = "320"
+  config.max_cal_height = "480"
+  config.frame_skip = 2
+
+  tagger = VideoTagger(config)
+  testVdieo = "testData/video.mp4"
+  err, state = tagger.parse(testVdieo)
+  print("err: ", err)
+  print("allScaledFrames: {}".format(len(state.allScaledFrames)))
+  print("currentSceneFrames: {}".format(len(state.currentSceneFrames)))
+  print("scenes: {}".format(state.scenes))
+  print("self.sceneList: ", tagger.sceneList)
+
+

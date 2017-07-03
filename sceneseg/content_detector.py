@@ -12,6 +12,7 @@ class ContentDetector(SceneSeg):
     self.lastFrame = None
     self.lastSceneFrameNum = None
     self.lastHSV = None
+    self.lastSceneCut = None
 
   def process_frame(self, frameNum, frameImg, frameMetrics, sceneList):
 
