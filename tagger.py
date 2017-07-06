@@ -5,6 +5,7 @@ import logging
 
 from utils.util_img import ratio_scale_factor
 from sceneseg.content_detector import ContentDetector
+from object_detector import ObjectDetector
 
 log = logging.getLogger("vtr")
 
@@ -64,7 +65,10 @@ class VideoTagger:
   """
   def __init__(self, config):
     self.config = config
-    self.detector = ContentDetector(threshold=30, minFrames=15)
+    self.scDetector = ContentDetector(threshold=30, minFrames=15)
+    self.objDetector = ObjectDetector(config)
+    # build the network
+    self.objDetector.initialize()
 
   def parse(self, videoPath):
 
@@ -149,7 +153,7 @@ class VideoTagger:
     if self.state.frameNum not in self.frameMetrics:
       self.frameMetrics[self.state.frameNum] = {}
 
-    isCutFound = self.detector.process_frame(
+    isCutFound = self.scDetector.process_frame(
       self.state.frameNum,
       frame,
       self.frameMetrics,
@@ -169,7 +173,8 @@ class VideoTagger:
     # empty scenFrames buffer
     self.state.currentSceneFrames = []
     # >>> should start object detection on dominateFrame
-
+    boxes, scores, classes, num_detections = self.objDetector.detect(
+      dominateFrame)
 
 
 if __name__ == "__main__":
@@ -180,6 +185,9 @@ if __name__ == "__main__":
   config.max_pred_width = 640
   config.max_pred_height = 720
   config.frame_skip = 2
+  config.TF_MODEL_FOLDER = "/Users/eisneim/www/deepLearning/_tf_models"
+  config.TF_MODEL_OD_CKPT_FOLDER = "/Volumes/raid/_deeplearning/_models/tf_detection_modelzoo/"
+  config.COCO_LABEL_MAP_PATH = "data/mscoco_label_map_cn.pbtxt"
 
   tagger = VideoTagger(config)
   testVdieo = "testData/video.mp4"
