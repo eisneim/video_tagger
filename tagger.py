@@ -2,8 +2,10 @@ import cv2
 import numpy as np
 import os
 import logging
+from multiprocessing import Process, Queue
 
 from utils.util_img import ratio_scale_factor
+from utils.util_vis import drawBoxes
 from sceneseg.content_detector import ContentDetector
 from object_detector import ObjectDetector
 
@@ -69,6 +71,9 @@ class VideoTagger:
     self.objDetector = ObjectDetector(config)
     # build the network
     self.objDetector.initialize()
+    if not config.IS_PRODUCTION:
+      cv2.namedWindow("detection")
+
 
   def parse(self, videoPath):
 
@@ -173,13 +178,25 @@ class VideoTagger:
     # empty scenFrames buffer
     self.state.currentSceneFrames = []
     # >>> should start object detection on dominateFrame
-    boxes, scores, classes, num_detections = self.objDetector.detect(
-      dominateFrame)
+    # boxes, scores, classes, num_detections
+    detectedResults = self.objDetector.detect(
+      [dominateFrame])
+    # print(detectedResults[0][2])
+    if not config.IS_PRODUCTION:
+      for result in detectedResults:
+        boxes, scores, classes, _ = result
+        img = drawBoxes(dominateFrame.copy(), boxes, scores, classes)
+        cv2.imshow("detection", img)
+        cv2.waitKey(5)
+
+    # should save the frame(s) to filesystem
+
 
 
 if __name__ == "__main__":
   from types import SimpleNamespace
   config = SimpleNamespace()
+  config.IS_PRODUCTION = False
   config.max_cal_width = "320"
   config.max_cal_height = "480"
   config.max_pred_width = 640
