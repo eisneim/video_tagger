@@ -40,14 +40,14 @@ def main():
   print(scenes)
 
   # build tensorflow graph first
-  batch_im2txt.build_graph(config.VOCABFILE, config.CHECKPOINT_DIR)
-  captions = batch_im2txt.describe(frames)
+  batch_im2txt.build_graph(config.VOCABFILE, config.IM2TXT_CHECKPOINT_DIR)
+  captions = batch_im2txt.parse(frames)
 
 
 # def testim2txt():
 #   frames = [cv2.imread("testData/2.jpg")]
 #   batch_im2txt.build_graph(VOCABFILE, CHECKPOINT_DIR)
-#   captions = batch_im2txt.describe(frames)
+#   captions = batch_im2txt.parse(frames)
 
 
 if __name__ == "__main__":

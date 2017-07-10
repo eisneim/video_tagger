@@ -10,10 +10,13 @@ from utils.util_img import ratio_scale_factor
 from utils.util_vis import drawBoxes
 from sceneseg.content_detector import ContentDetector
 from object_detector import ObjectDetector
+import batch_im2txt
 
 log = logging.getLogger("vtr")
-PROCESS_TIMEOUT = 10
+PROCESS_TIMEOUT = 15
 
+PROCESS_OD = "PROCESS_OD"
+PROCESS_IM2TXT = "PROCESS_IM2TXT"
 
 class VideoParserState(object):
   def __init__(self, donwScaleFactor=1, predDonwScaleFactor=1):
@@ -78,17 +81,25 @@ class VideoTagger:
 
     # create neural network process
     self.process_od = Process(target=process_pooling,
-      args=(self.inputDict, self.outputDict, PROCESS_OD),
+      args=(self.inputDict, self.outputDict, PROCESS_OD, config),
       name=PROCESS_OD)
     self.process_od.daemon = True
 
-    self.processes = [PROCESS_OD]
+    self.process_im2txt = Process(target=process_pooling,
+      args=(self.inputDict, self.outputDict, PROCESS_IM2TXT, config),
+      name=PROCESS_IM2TXT)
+    self.process_im2txt.daemon = True
+
+    self.processes = [PROCESS_OD, PROCESS_IM2TXT]
     # initialize process dict
     for pid in self.processes:
       self.inputDict[pid] = None
       self.outputDict[pid] = None
       self.outputDict[pid + "_INIT"] = None
+    # start all child processes
+    self.process_im2txt.start()
     self.process_od.start()
+
     self.allChildProcessReady = False
 
   def blockUntilChildprocessReady(self):
@@ -212,6 +223,7 @@ class VideoTagger:
     # detectedResults = self.objDetector.parse(
     #   [dominateFrame])
     self.inputDict[PROCESS_OD] = [dominateFrame]
+    self.inputDict[PROCESS_IM2TXT] = [dominateFrame]
 
     # start to pool results from queue:
     resultCount = 0
@@ -227,7 +239,6 @@ class VideoTagger:
 
       if time.time() - startTime > PROCESS_TIMEOUT:
         # should kill all process
-
         raise ValueError("PROCESS_TIMEOUT")
 
     # visualize boundingboxes
@@ -235,19 +246,19 @@ class VideoTagger:
       for result in resultData[PROCESS_OD]:
         boxes, scores, classes, _ = result
         img = drawBoxes(dominateFrame.copy(), boxes, scores, classes)
-        cv2.imshow("detection", img)
-        cv2.waitKey(5)
+
+      cv2.imshow("detection", img)
+      cv2.waitKey(5)
 
     # should save the frame(s) to filesystem
 
 
-PROCESS_OD = "PROCESS_OD"
 # def createProcess(dd, queue, identifier):
 #   if identifier == PROCESS_OD:
 #     return
 
 
-def process_pooling(inputDict, outputDict, identifier):
+def process_pooling(inputDict, outputDict, identifier, config):
   name = current_process().name
   # make print() to a file
   # sys.stdout = open("log/" + name + ".out", "a")
@@ -259,6 +270,11 @@ def process_pooling(inputDict, outputDict, identifier):
     targetProcess = ObjectDetector(config)
     # build the network
     targetProcess.initialize()
+    outputDict[identifier + "_INIT"] = True
+
+  if identifier == PROCESS_IM2TXT:
+    targetProcess = batch_im2txt
+    batch_im2txt.build_graph(config.VOCABFILE, config.IM2TXT_CHECKPOINT_DIR)
     outputDict[identifier + "_INIT"] = True
 
   # pooling
@@ -288,6 +304,9 @@ if __name__ == "__main__":
   config.TF_MODEL_FOLDER = "/Users/eisneim/www/deepLearning/_tf_models"
   config.TF_MODEL_OD_CKPT_FOLDER = "/Volumes/raid/_deeplearning/_models/tf_detection_modelzoo/"
   config.COCO_LABEL_MAP_PATH = "data/mscoco_label_map_cn.pbtxt"
+
+  config.VOCABFILE = "data/word_counts.txt"
+  config.IM2TXT_CHECKPOINT_DIR = "/Users/eisneim/www/deepLearning/_pre_trained_model/im2txt/model.ckpt-2000000"
 
   # ----------- configure logging ---------
   log.setLevel(logging.DEBUG)

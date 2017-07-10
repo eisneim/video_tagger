@@ -49,7 +49,7 @@ def build_graph(vocab_file, checkpoint_path):
   vocab = vocabulary.Vocabulary(vocab_file)
 
 
-def describe(images):
+def parse(images):
   """batch generate image captions
 
   Arguments:
