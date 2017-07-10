@@ -1,8 +1,10 @@
 import cv2
 import numpy as np
 import os
+import sys
 import logging
-from multiprocessing import Process, Queue
+import time
+from multiprocessing import Process, Manager, current_process
 
 from utils.util_img import ratio_scale_factor
 from utils.util_vis import drawBoxes
@@ -10,6 +12,7 @@ from sceneseg.content_detector import ContentDetector
 from object_detector import ObjectDetector
 
 log = logging.getLogger("vtr")
+PROCESS_TIMEOUT = 10
 
 
 class VideoParserState(object):
@@ -27,7 +30,7 @@ class VideoParserState(object):
     self.currentSceneFrames = []
     self.donwScaleFactor = donwScaleFactor
     self.predDonwScaleFactor = predDonwScaleFactor
-    print("donwScaleFactor: {}, predDonwScaleFactor: {}".format(
+    log.info("donwScaleFactor: {}, predDonwScaleFactor: {}".format(
       donwScaleFactor,
       predDonwScaleFactor))
 
@@ -68,12 +71,36 @@ class VideoTagger:
   def __init__(self, config):
     self.config = config
     self.scDetector = ContentDetector(threshold=30, minFrames=15)
-    self.objDetector = ObjectDetector(config)
-    # build the network
-    self.objDetector.initialize()
-    if not config.IS_PRODUCTION:
-      cv2.namedWindow("detection")
+    qManager = Manager()
+    self.inputDict = qManager.dict()
+    self.outputDict = qManager.dict()
+    # self.queue = Queue()
 
+    # create neural network process
+    self.process_od = Process(target=process_pooling,
+      args=(self.inputDict, self.outputDict, PROCESS_OD),
+      name=PROCESS_OD)
+    self.process_od.daemon = True
+
+    self.processes = [PROCESS_OD]
+    # initialize process dict
+    for pid in self.processes:
+      self.inputDict[pid] = None
+      self.outputDict[pid] = None
+      self.outputDict[pid + "_INIT"] = None
+    self.process_od.start()
+    self.allChildProcessReady = False
+
+  def blockUntilChildprocessReady(self):
+    log.info(">> waiting for all child process to be ready")
+    while True:
+      count = 0
+      for pid in self.processes:
+        isReady = self.outputDict[pid + "_INIT"]
+        count += 1 if isReady else 0
+      if count == len(self.processes):
+        self.allChildProcessReady = True
+        break
 
   def parse(self, videoPath):
 
@@ -108,7 +135,7 @@ class VideoTagger:
         self.videoHeight,
         self.config.max_pred_width,
         self.config.max_pred_height)
-      print("scaleFactor:", scaleFactor, round(1 / scaleFactor))
+      log.info("scaleFactor: {} {}".format(scaleFactor, round(1 / scaleFactor)))
       self.predDonwScaleFactor = round(1 / scaleFactor)
       log.info("predDonwScaleFactor: {}".format(self.donwScaleFactor))
 
@@ -166,9 +193,12 @@ class VideoTagger:
 
     if isCutFound:
       self.sceneDetected()
-      print("cut found at: {}".format(self.state.frameNum))
+      log.info("cut found at: {}".format(self.state.frameNum))
 
   def sceneDetected(self):
+    if not self.allChildProcessReady:
+      self.blockUntilChildprocessReady()
+
     self.state.scenes.append(self.state.frameNum)
     # should find best frame to represent this scene
     # currently using the dumbest way, which is using the middle frame
@@ -179,11 +209,30 @@ class VideoTagger:
     self.state.currentSceneFrames = []
     # >>> should start object detection on dominateFrame
     # boxes, scores, classes, num_detections
-    detectedResults = self.objDetector.detect(
-      [dominateFrame])
-    # print(detectedResults[0][2])
+    # detectedResults = self.objDetector.parse(
+    #   [dominateFrame])
+    self.inputDict[PROCESS_OD] = [dominateFrame]
+
+    # start to pool results from queue:
+    resultCount = 0
+    resultData = {}
+    startTime = time.time()
+    while resultCount < len(self.processes):
+      for identifier in self.processes:
+        data = self.outputDict[identifier]
+        if data is not None:
+          resultCount += 1
+          self.outputDict[identifier] = None
+        resultData[identifier] = data
+
+      if time.time() - startTime > PROCESS_TIMEOUT:
+        # should kill all process
+
+        raise ValueError("PROCESS_TIMEOUT")
+
+    # visualize boundingboxes
     if not config.IS_PRODUCTION:
-      for result in detectedResults:
+      for result in resultData[PROCESS_OD]:
         boxes, scores, classes, _ = result
         img = drawBoxes(dominateFrame.copy(), boxes, scores, classes)
         cv2.imshow("detection", img)
@@ -191,6 +240,40 @@ class VideoTagger:
 
     # should save the frame(s) to filesystem
 
+
+PROCESS_OD = "PROCESS_OD"
+# def createProcess(dd, queue, identifier):
+#   if identifier == PROCESS_OD:
+#     return
+
+
+def process_pooling(inputDict, outputDict, identifier):
+  name = current_process().name
+  # make print() to a file
+  # sys.stdout = open("log/" + name + ".out", "a")
+  # sys.stderr = open("log/" + name + "_error.out", "a")
+  log.info("start process: {}".format(name))
+
+  targetProcess = None
+  if identifier == PROCESS_OD:
+    targetProcess = ObjectDetector(config)
+    # build the network
+    targetProcess.initialize()
+    outputDict[identifier + "_INIT"] = True
+
+  # pooling
+  while True:
+    data = inputDict[identifier]
+    if data is not None:
+      log.info("new frame received")
+      result = targetProcess.parse(data)
+      del inputDict[identifier]
+      inputDict[identifier] = None
+      # send it back to queue
+      outputDict[identifier] = result
+    # else:
+    #   # is this necessary?
+    #   time.sleep(0.01)
 
 
 if __name__ == "__main__":
@@ -205,6 +288,16 @@ if __name__ == "__main__":
   config.TF_MODEL_FOLDER = "/Users/eisneim/www/deepLearning/_tf_models"
   config.TF_MODEL_OD_CKPT_FOLDER = "/Volumes/raid/_deeplearning/_models/tf_detection_modelzoo/"
   config.COCO_LABEL_MAP_PATH = "data/mscoco_label_map_cn.pbtxt"
+
+  # ----------- configure logging ---------
+  log.setLevel(logging.DEBUG)
+  ch = logging.StreamHandler()
+  ch.setLevel(logging.DEBUG)
+  # %(name)s -
+  formatter = logging.Formatter('%(asctime)s %(levelname)s - %(message)s')
+  ch.setFormatter(formatter)
+  log.addHandler(ch)
+  # ---------------
 
   tagger = VideoTagger(config)
   testVdieo = "testData/video.mp4"

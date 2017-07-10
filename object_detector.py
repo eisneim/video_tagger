@@ -64,7 +64,7 @@ class ObjectDetector:
     for cc in self.categories:
       self.categoryNames[int(cc["id"]) - 1] = cc["name"]
 
-  def detect(self, images):
+  def parse(self, images):
     if not self.isInitialized:
       self.initialize()
 
