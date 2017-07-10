@@ -74,6 +74,12 @@ class VideoTagger:
   def __init__(self, config):
     self.config = config
     self.scDetector = ContentDetector(threshold=30, minFrames=15)
+    if config.PARALLEL:
+      self.initialize_childProcess()
+    else:
+      self.framesTobeParsed = []
+
+  def initialize_childProcess(self):
     qManager = Manager()
     self.inputDict = qManager.dict()
     self.outputDict = qManager.dict()
@@ -101,6 +107,7 @@ class VideoTagger:
     self.process_od.start()
 
     self.allChildProcessReady = False
+
 
   def blockUntilChildprocessReady(self):
     log.info(">> waiting for all child process to be ready")
@@ -183,6 +190,9 @@ class VideoTagger:
 
       ret_val, frame = cap.read()
       if not ret_val:
+        # from last cut to the last frame number
+        # there is still a scene to be parsed
+        self.sceneDetected(isLastFrame=True)
         break
 
       # save current frame
@@ -190,6 +200,7 @@ class VideoTagger:
       # this is where calculation happens
       self.tick(frame)
       self.state.frameNum += 1
+    self.batchRecognize()
 
   def tick(self, frame):
     # frameMatrics
@@ -206,25 +217,15 @@ class VideoTagger:
       self.sceneDetected()
       log.info("cut found at: {}".format(self.state.frameNum))
 
-  def sceneDetected(self):
+  def sceneDetectedParallel(self, frames):
     if not self.allChildProcessReady:
       self.blockUntilChildprocessReady()
 
-    self.state.scenes.append(self.state.frameNum)
-    # should find best frame to represent this scene
-    # currently using the dumbest way, which is using the middle frame
-    # @TODO: better way to find representative frame
-    midIndex = len(self.state.currentSceneFrames) // 2
-    dominateFrame = self.state.currentSceneFrames[midIndex]
-    # empty scenFrames buffer
-    self.state.currentSceneFrames = []
-    # >>> should start object detection on dominateFrame
     # boxes, scores, classes, num_detections
     # detectedResults = self.objDetector.parse(
     #   [dominateFrame])
-    self.inputDict[PROCESS_OD] = [dominateFrame]
-    self.inputDict[PROCESS_IM2TXT] = [dominateFrame]
-
+    self.inputDict[PROCESS_OD] = frames
+    self.inputDict[PROCESS_IM2TXT] = frames
     # start to pool results from queue:
     resultCount = 0
     resultData = {}
@@ -240,18 +241,36 @@ class VideoTagger:
       if time.time() - startTime > PROCESS_TIMEOUT:
         # should kill all process
         raise ValueError("PROCESS_TIMEOUT")
+    return resultData
 
-    # visualize boundingboxes
-    if not config.IS_PRODUCTION:
-      for result in resultData[PROCESS_OD]:
-        boxes, scores, classes, _ = result
-        img = drawBoxes(dominateFrame.copy(), boxes, scores, classes)
+  def sceneDetected(self, isLastFrame=False):
+    if not isLastFrame:
+      self.state.scenes.append(self.state.frameNum)
+    # should find best frame to represent this scene
+    # currently using the dumbest way, which is using the middle frame
+    # @TODO: better way to find representative frame
+    midIndex = len(self.state.currentSceneFrames) // 2
+    dominateFrame = self.state.currentSceneFrames[midIndex]
+    # empty scenFrames buffer
+    self.state.currentSceneFrames = []
+    frames = [dominateFrame]
+    # >>> should start object detection on dominateFrame
+    if self.config.PARALLEL:
+      resultData = self.sceneDetectedParallel(frames)
+      # visualize boundingboxes
+      if not config.IS_PRODUCTION:
+        for result in resultData[PROCESS_OD]:
+          boxes, scores, classes, _ = result
+          img = drawBoxes(dominateFrame.copy(), boxes, scores, classes)
 
-      cv2.imshow("detection", img)
-      cv2.waitKey(5)
-
+        cv2.imshow("detection", img)
+        cv2.waitKey(5)
+    else:
+      self.framesTobeParsed.append(dominateFrame)
     # should save the frame(s) to filesystem
 
+  def batchRecognize(self):
+    log.info("frames to be recognized: {}".format(len(self.framesTobeParsed)))
 
 # def createProcess(dd, queue, identifier):
 #   if identifier == PROCESS_OD:
@@ -295,6 +314,7 @@ def process_pooling(inputDict, outputDict, identifier, config):
 if __name__ == "__main__":
   from types import SimpleNamespace
   config = SimpleNamespace()
+  config.PARALLEL = False
   config.IS_PRODUCTION = False
   config.max_cal_width = "320"
   config.max_cal_height = "480"
@@ -325,9 +345,6 @@ if __name__ == "__main__":
   print("allScaledFrames: {}, shape:{}".format(
     len(state.allScaledFrames),
     state.allScaledFrames[0].shape))
-  print("currentSceneFrames: {}, shape:{}".format(
-    len(state.currentSceneFrames),
-    state.currentSceneFrames[0].shape))
   print("scenes: {}".format(state.scenes))
   print("self.sceneList: ", tagger.sceneList)
 

@@ -26,7 +26,14 @@ class VConfig:
         assert len(pair) == 2
         # config_dict[pair[0]] = config_dict[pair[1]]
         print("{} = {}".format(pair[0], pair[1]))
-        setattr(self, pair[0], pair[1])
+        if pair[1] == "True":
+          setattr(self, pair[0], True)
+        if pair[1] == "False":
+          setattr(self, pair[0], False)
+        if pair[1] == "None":
+          setattr(self, pair[0], None)
+        else:
+          setattr(self, pair[0], pair[1])
 
     self.rootPath = os.path.dirname(os.path.realpath(__file__))
     self.thumb_path = os.path.join(self.rootPath, "thumbs/")
