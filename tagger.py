@@ -78,6 +78,7 @@ class VideoTagger:
       self.initialize_childProcess()
     else:
       self.framesTobeParsed = []
+      self.initialize_networks()
 
   def initialize_childProcess(self):
     qManager = Manager()
@@ -108,6 +109,13 @@ class VideoTagger:
 
     self.allChildProcessReady = False
 
+  def initialize_networks(self):
+    self.objectDetector = ObjectDetector(self.config)
+    # build the network
+    self.objectDetector.initialize()
+
+    batch_im2txt.build_graph(self.config.VOCABFILE,
+      self.config.IM2TXT_CHECKPOINT_DIR)
 
   def blockUntilChildprocessReady(self):
     log.info(">> waiting for all child process to be ready")
@@ -200,7 +208,8 @@ class VideoTagger:
       # this is where calculation happens
       self.tick(frame)
       self.state.frameNum += 1
-    self.batchRecognize()
+    if not self.config.PARALLEL:
+      self.batchRecognize()
 
   def tick(self, frame):
     # frameMatrics
@@ -271,6 +280,11 @@ class VideoTagger:
 
   def batchRecognize(self):
     log.info("frames to be recognized: {}".format(len(self.framesTobeParsed)))
+    od_results = self.objectDetector.parse(self.framesTobeParsed)
+    caption_results = batch_im2txt.parse(self.framesTobeParsed)
+
+    log.info("len(od results): {}".format(len(od_results)))
+    log.info("len(caption results): {}".format(len(caption_results)))
 
 # def createProcess(dd, queue, identifier):
 #   if identifier == PROCESS_OD:

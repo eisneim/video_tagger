@@ -6,6 +6,7 @@ class VConfig:
     if not os.path.exists(config_path):
       raise "config.conf does not found in root dir"
 
+    self.PARALLEL = False
     self.IS_PRODUCTION = None
     self.max_cal_width = None
     self.max_cal_height = None
