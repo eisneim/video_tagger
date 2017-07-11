@@ -7,7 +7,7 @@ import time
 from multiprocessing import Process, Manager, current_process
 
 from utils.util_img import ratio_scale_factor
-from utils.util_vis import drawBoxes
+from utils.util_vis import drawBoxes, putCaptions
 from sceneseg.content_detector import ContentDetector
 from object_detector import ObjectDetector
 import batch_im2txt
@@ -36,6 +36,9 @@ class VideoParserState(object):
     log.info("donwScaleFactor: {}, predDonwScaleFactor: {}".format(
       donwScaleFactor,
       predDonwScaleFactor))
+
+    self.objectDetectionResults = []
+    self.captioningResults = []
 
   @property
   def currentFrame(self):
@@ -171,6 +174,11 @@ class VideoTagger:
 
     # main loop
     self.loop(cap)
+    # batchRecognize if the pipline is not running in parallel
+    if not self.config.PARALLEL:
+      od_results, caption_results = self.batchRecognize()
+      self.state.objectDetectionResults = od_results
+      self.state.captioningResults = caption_results
 
     # Cleanup and return parse state.
     cap.release()
@@ -208,8 +216,6 @@ class VideoTagger:
       # this is where calculation happens
       self.tick(frame)
       self.state.frameNum += 1
-    if not self.config.PARALLEL:
-      self.batchRecognize()
 
   def tick(self, frame):
     # frameMatrics
@@ -285,6 +291,17 @@ class VideoTagger:
 
     log.info("len(od results): {}".format(len(od_results)))
     log.info("len(caption results): {}".format(len(caption_results)))
+
+    if not self.config.IS_PRODUCTION:
+      for idx, frame in enumerate(self.framesTobeParsed):
+        captions = caption_results[idx]
+        boxes, scores, classes, _  = od_results[idx]
+        img = putCaptions(frame.copy(), captions)
+        img = drawBoxes(img, boxes, scores, classes)
+        cv2.imshow("results", img)
+        cv2.waitKey(300)
+
+    return od_results, caption_results
 
 # def createProcess(dd, queue, identifier):
 #   if identifier == PROCESS_OD:

@@ -71,14 +71,21 @@ def parse(images):
       img = cv2.resize(img, (modelConfig.image_width, modelConfig.image_height))
 
       captions = generator.beam_search(sess, img)
-      allCaptions.append(captions)
 
+      captionTxts = []
       for i, caption in enumerate(captions):
         # Ignore begin and end words.
         sentence = [vocab.id_to_word(w) for w in caption.sentence[1:-1]]
+        p = math.exp(caption.logprob)
+        captionTxts.append({
+          "sentence": sentence,
+          "p": p,
+        })
         sentence = " ".join(sentence)
-        print("  %d) %s (p=%f)" % (i, sentence, math.exp(caption.logprob)))
+        print("  %d) %s (p=%f)" % (i, sentence, p))
       print("============")
+
+      allCaptions.append(captionTxts)
     return allCaptions
 
 
