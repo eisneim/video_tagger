@@ -20,7 +20,7 @@ def drawBoxes(img, boxes, scores, names):
     # draw classname
     cv2.putText(img,
       "{}: {:.3f}".format(name, score),
-      (xmin, ymin - 5),
+      (xmin, ymin - 10),
       font, 0.5,
       color,
       thickness)
@@ -32,13 +32,13 @@ def putCaptions(img, captions):
   color = (255, 0, 0)
   font = cv2.FONT_HERSHEY_SIMPLEX
   thickness = 1
-  txtHeight = 30
+  txtHeight = 24
   for idx, cap in enumerate(captions):
     sentence = cap["sentence"]
     p = cap["p"]
     cv2.putText(img,
       "({}) {} ({:.5f})".format(idx, " ".join(sentence), p),
-      (5, txtHeight * idx + 10),
+      (5, txtHeight * idx + 15),
       font, 0.5,
       color,
       thickness)

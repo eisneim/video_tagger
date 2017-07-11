@@ -7,6 +7,7 @@ class VConfig:
       raise "config.conf does not found in root dir"
 
     self.PARALLEL = False
+    self.THUMB_DIR = None
     self.IS_PRODUCTION = None
     self.max_cal_width = None
     self.max_cal_height = None

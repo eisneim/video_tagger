@@ -6,7 +6,7 @@ import logging
 import time
 from multiprocessing import Process, Manager, current_process
 
-from utils.util_img import ratio_scale_factor
+from utils.util_img import ratio_scale_factor, save_thumbs
 from utils.util_vis import drawBoxes, putCaptions
 from sceneseg.content_detector import ContentDetector
 from object_detector import ObjectDetector
@@ -81,6 +81,7 @@ class VideoTagger:
       self.initialize_childProcess()
     else:
       self.framesTobeParsed = []
+      self.framesTobeParsedIdx = []
       self.initialize_networks()
 
   def initialize_childProcess(self):
@@ -132,7 +133,7 @@ class VideoTagger:
         break
 
   def parse(self, videoPath):
-
+    self.videoName = os.path.basename(videoPath).rsplit(".")[0]
     cap = cv2.VideoCapture()
 
     # @TODO: caught errors
@@ -265,6 +266,7 @@ class VideoTagger:
     # currently using the dumbest way, which is using the middle frame
     # @TODO: better way to find representative frame
     midIndex = len(self.state.currentSceneFrames) // 2
+    frameNumber = self.state.frameNum + midIndex
     dominateFrame = self.state.currentSceneFrames[midIndex]
     # empty scenFrames buffer
     self.state.currentSceneFrames = []
@@ -282,6 +284,7 @@ class VideoTagger:
         cv2.waitKey(5)
     else:
       self.framesTobeParsed.append(dominateFrame)
+      self.framesTobeParsedIdx.append(frameNumber)
     # should save the frame(s) to filesystem
 
   def batchRecognize(self):
@@ -292,14 +295,21 @@ class VideoTagger:
     log.info("len(od results): {}".format(len(od_results)))
     log.info("len(caption results): {}".format(len(caption_results)))
 
+    imgsToSave = self.framesTobeParsed
     if not self.config.IS_PRODUCTION:
+      imgsToSave = []
       for idx, frame in enumerate(self.framesTobeParsed):
         captions = caption_results[idx]
         boxes, scores, classes, _  = od_results[idx]
         img = putCaptions(frame.copy(), captions)
         img = drawBoxes(img, boxes, scores, classes)
-        cv2.imshow("results", img)
-        cv2.waitKey(300)
+        # cv2.imshow("results", img)
+        # cv2.waitKey(300)
+        imgsToSave.append(img)
+    # save images to file
+    save_thumbs(self.videoName, imgsToSave,
+      self.framesTobeParsedIdx,
+      self.config.THUMB_DIR)
 
     return od_results, caption_results
 
@@ -352,6 +362,7 @@ if __name__ == "__main__":
   config.max_pred_width = 640
   config.max_pred_height = 720
   config.frame_skip = 2
+  config.THUMB_DIR = "thumbs"
   config.TF_MODEL_FOLDER = "/Users/eisneim/www/deepLearning/_tf_models"
   config.TF_MODEL_OD_CKPT_FOLDER = "/Volumes/raid/_deeplearning/_models/tf_detection_modelzoo/"
   config.COCO_LABEL_MAP_PATH = "data/mscoco_label_map_cn.pbtxt"
