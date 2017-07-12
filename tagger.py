@@ -78,8 +78,8 @@ class VideoTagger:
   def __init__(self, config):
     self.config = config
     self.scDetector = ContentDetector(
-      threshold=int(config.THRESHOLD_SCENESEG),
-      minFrames=int(config.SCENESEG_MINFRAMES))
+      threshold=config.THRESHOLD_SCENESEG,
+      minFrames=config.SCENESEG_MINFRAMES)
     if config.PARALLEL:
       self.initialize_childProcess()
     else:
@@ -191,8 +191,8 @@ class VideoTagger:
 
   def loop(self, cap):
     skip = 0
-    if self.config.frame_skip and int(self.config.frame_skip) > 0:
-      skip = int(self.config.frame_skip)
+    if self.config.frame_skip and self.config.frame_skip > 0:
+      skip = self.config.frame_skip
 
     self.state.frameNum = 0
     # used for storing each frame's metrics
