@@ -361,8 +361,8 @@ if __name__ == "__main__":
   config = SimpleNamespace()
   config.PARALLEL = False
   config.IS_PRODUCTION = False
-  config.max_cal_width = "320"
-  config.max_cal_height = "480"
+  config.max_cal_width = 320
+  config.max_cal_height = 480
   config.max_pred_width = 640
   config.max_pred_height = 720
   config.frame_skip = 2
