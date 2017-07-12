@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import sys
 
+
 class FaceDetector(object):
   def __init__(self):
     pass
@@ -36,8 +37,7 @@ class FaceDetectorCascadeOpenCV(FaceDetector):
 
 
 if __name__ == "__main__":
-  detector = FaceDetectorCascadeOpenCV(
-    frontalModel='data/haarcascade_frontalface_default.xml')
+  detector = FaceDetectorCascadeOpenCV()
   print("image: {}".format(sys.argv[1]))
   img = cv2.imread(sys.argv[1])
   faces, facesImg = detector.run(img)

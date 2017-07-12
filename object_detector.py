@@ -92,8 +92,8 @@ class ObjectDetector:
             [boxes_, scores_, classes_, num_detections_],
             feed_dict={image_tensor: image_expanded})
           indices = np.where(np.squeeze(scores) > self.threshold)
-          scores = np.squeeze(scores)[indices]
-          boxes = np.squeeze(boxes)[indices]
+          scores = np.squeeze(scores)[indices].tolist()
+          boxes = np.squeeze(boxes)[indices].tolist()
           classes = np.squeeze(classes).astype(np.int32)[indices]
           # convert it to names
           classes = [self.categoryNames[cc - 1] for cc in classes]

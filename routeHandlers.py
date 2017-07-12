@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, \
+from flask import request, render_template, \
   jsonify, \
   g, \
   abort, \
@@ -20,6 +20,7 @@ def routes(ctx):
   serverApp = ctx.app
   # mongo = ctx.mongo
   config = ctx.config
+  tagger = ctx.tagger
 
   @serverApp.route("/")
   def index():
@@ -95,10 +96,17 @@ def routes(ctx):
             "err": "'video' form field is empty"
           })
       if file and allowed_file(file.filename):
-        datestr = datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
+        datestr = datetime.datetime.now().strftime("%m-%d_%H_%M%S")
         filename = datestr + "_" + secure_filename(file.filename)
-        file.save(config.rootPath + "/uploads/" + filename)
-        return jsonify(err=None, success=1, filename=filename)
+        videopath = config.rootPath + "/uploads/" + filename
+        file.save(videopath)
+
+        err, state = tagger.parse(videopath)
+
+        return jsonify(err=err, success=1, filename=filename,
+          objectDetectionResults=state.objectDetectionResults,
+          captioningResults=state.captioningResults,
+          frameIndices=tagger.framesTobeParsedIdx)
 
     return jsonify({
         "err": "invalid filename"

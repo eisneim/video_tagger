@@ -15,6 +15,9 @@ class VConfig:
     self.max_pred_height = None
     self.frame_skip = 1
     self.TF_MODEL_FOLDER = None
+    self.THRESHOLD_OBJECT_DETECTION = 0.6
+    self.THRESHOLD_SCENESEG = 30
+    self.SCENESEG_MINFRAMES = 15
 
     # config_dict = {}
     with open(config_path, "r") as ff:
@@ -30,9 +33,9 @@ class VConfig:
         print("{} = {}".format(pair[0], pair[1]))
         if pair[1] == "True":
           setattr(self, pair[0], True)
-        if pair[1] == "False":
+        elif pair[1] == "False":
           setattr(self, pair[0], False)
-        if pair[1] == "None":
+        elif pair[1] == "None":
           setattr(self, pair[0], None)
         else:
           setattr(self, pair[0], pair[1])
@@ -40,6 +43,14 @@ class VConfig:
     self.rootPath = os.path.dirname(os.path.realpath(__file__))
     self.thumb_path = os.path.join(self.rootPath, "thumbs/")
 
+    if self.max_cal_width:
+      self.max_cal_width = int(self.max_cal_width)
+    if self.max_cal_height:
+      self.max_cal_height = int(self.max_cal_height)
+    if self.max_pred_width:
+      self.max_pred_width = int(self.max_pred_width)
+    if self.max_pred_height:
+      self.max_pred_height = int(self.max_pred_height)
 
 
 if __name__ == "__main__":

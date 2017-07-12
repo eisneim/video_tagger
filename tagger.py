@@ -18,6 +18,7 @@ PROCESS_TIMEOUT = 15
 PROCESS_OD = "PROCESS_OD"
 PROCESS_IM2TXT = "PROCESS_IM2TXT"
 
+
 class VideoParserState(object):
   def __init__(self, donwScaleFactor=1, predDonwScaleFactor=1):
     self._currentFrame = None
@@ -76,7 +77,9 @@ class VideoTagger:
   """
   def __init__(self, config):
     self.config = config
-    self.scDetector = ContentDetector(threshold=30, minFrames=15)
+    self.scDetector = ContentDetector(
+      threshold=int(config.THRESHOLD_SCENESEG),
+      minFrames=int(config.SCENESEG_MINFRAMES))
     if config.PARALLEL:
       self.initialize_childProcess()
     else:
@@ -92,12 +95,12 @@ class VideoTagger:
 
     # create neural network process
     self.process_od = Process(target=process_pooling,
-      args=(self.inputDict, self.outputDict, PROCESS_OD, config),
+      args=(self.inputDict, self.outputDict, PROCESS_OD, self.config),
       name=PROCESS_OD)
     self.process_od.daemon = True
 
     self.process_im2txt = Process(target=process_pooling,
-      args=(self.inputDict, self.outputDict, PROCESS_IM2TXT, config),
+      args=(self.inputDict, self.outputDict, PROCESS_IM2TXT, self.config),
       name=PROCESS_IM2TXT)
     self.process_im2txt.daemon = True
 
@@ -114,7 +117,8 @@ class VideoTagger:
     self.allChildProcessReady = False
 
   def initialize_networks(self):
-    self.objectDetector = ObjectDetector(self.config)
+    self.objectDetector = ObjectDetector(self.config,
+      threshold=float(self.config.THRESHOLD_OBJECT_DETECTION))
     # build the network
     self.objectDetector.initialize()
 
@@ -147,31 +151,31 @@ class VideoTagger:
     self.videoHeight = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     self.videoFps = cap.get(cv2.CAP_PROP_FPS)
     # perform the down-scale step
-    if self.config.max_cal_width:
-      self.config.max_cal_width = int(self.config.max_cal_width)
-      self.config.max_cal_height = int(self.config.max_cal_height)
+    donwScaleFactor = 1
+    predDonwScaleFactor = 1
+    if self.videoWidth > self.config.max_cal_width or \
+      self.videoHeight > self.config.max_cal_height:
       scaleFactor = ratio_scale_factor(self.videoWidth,
         self.videoHeight,
         self.config.max_cal_width,
         self.config.max_cal_height)
-      self.donwScaleFactor = round(1 / scaleFactor)
-      log.info("donwScaleFactor: {}".format(self.donwScaleFactor))
+      donwScaleFactor = round(1 / scaleFactor)
+      log.info("donwScaleFactor: {}".format(donwScaleFactor))
 
     # donw-scale frame size for object detection
-    if self.config.max_pred_width:
-      self.config.max_pred_width = int(self.config.max_pred_width)
-      self.config.max_pred_height = int(self.config.max_pred_height)
+    if self.videoWidth > self.config.max_pred_width or \
+      self.videoHeight > self.config.max_pred_height:
       scaleFactor = ratio_scale_factor(self.videoWidth,
         self.videoHeight,
         self.config.max_pred_width,
         self.config.max_pred_height)
       log.info("scaleFactor: {} {}".format(scaleFactor, round(1 / scaleFactor)))
-      self.predDonwScaleFactor = round(1 / scaleFactor)
-      log.info("predDonwScaleFactor: {}".format(self.donwScaleFactor))
+      predDonwScaleFactor = round(1 / scaleFactor)
+      log.info("predDonwScaleFactor: {}".format(donwScaleFactor))
 
     # store parsing state
-    self.state = VideoParserState(self.donwScaleFactor,
-      self.predDonwScaleFactor)
+    self.state = VideoParserState(donwScaleFactor,
+      predDonwScaleFactor)
 
     # main loop
     self.loop(cap)
@@ -187,7 +191,7 @@ class VideoTagger:
 
   def loop(self, cap):
     skip = 0
-    if self.config.frame_skip and self.config.frame_skip > 0:
+    if self.config.frame_skip and int(self.config.frame_skip) > 0:
       skip = int(self.config.frame_skip)
 
     self.state.frameNum = 0

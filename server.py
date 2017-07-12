@@ -1,9 +1,5 @@
 import logging
-from flask import Flask, request, render_template, \
-  jsonify, \
-  g, \
-  abort, \
-  send_from_directory
+from flask import Flask
 from flask_pymongo import PyMongo
 
 from tagger import VideoTagger
