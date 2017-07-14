@@ -97,6 +97,7 @@ class ObjectDetector:
           classes = np.squeeze(classes).astype(np.int32)[indices]
           # convert it to names
           classes = [self.categoryNames[cc - 1] for cc in classes]
+          print("classes: {}".format(classes))
           num_detections = len(classes)
           results.append((boxes, scores, classes, num_detections))
           # visualization

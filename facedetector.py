@@ -36,11 +36,14 @@ class FaceDetectorCascadeOpenCV(FaceDetector):
     cv2.destroyAllWindows()
 
 
-if __name__ == "__main__":
+def testOcv():
   detector = FaceDetectorCascadeOpenCV()
   print("image: {}".format(sys.argv[1]))
   img = cv2.imread(sys.argv[1])
   faces, facesImg = detector.run(img)
   detector.visualize(img, faces)
+
+if __name__ == "__main__":
+  testOcv()
 
 

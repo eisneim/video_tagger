@@ -1,6 +1,6 @@
 videoTagger(working in progress)
 --------
-video content analyzing and scene Tagging using computer vision and convolutional nerual networks.
+video content analyzing and scene Tagging using computer vision and convolutional neural networks.
 
 ## Key feature
  - object detection(yolo9000)
