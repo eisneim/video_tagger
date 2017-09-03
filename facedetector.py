@@ -43,6 +43,13 @@ def testOcv():
   faces, facesImg = detector.run(img)
   detector.visualize(img, faces)
 
+
+class FaceDetectorFacenet(FaceDetector):
+
+  def __init__():
+    pass
+
+
 if __name__ == "__main__":
   testOcv()
 

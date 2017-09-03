@@ -25,6 +25,9 @@ class VideoParserState(object):
     self.frameNum = 0
     self.lastSceneFrameNum = 0
     self.scenes = []
+    self.width = 0
+    self.height = 0
+    self.fps = 0
     # only store scaled frame to save memory space
     self.allScaledFrames = []
     # buffer of frames, if new scene is detected
@@ -77,6 +80,9 @@ class VideoTagger:
   """
   def __init__(self, config):
     self.config = config
+    if "max_buffer_frames_count" not in self.config:
+      self.config.max_buffer_frames_count = 100
+
     self.scDetector = ContentDetector(
       threshold=config.THRESHOLD_SCENESEG,
       minFrames=config.SCENESEG_MINFRAMES)
@@ -85,6 +91,7 @@ class VideoTagger:
     else:
       self.framesTobeParsed = []
       self.framesTobeParsedIdx = []
+      self.frameParseResults = []
       self.initialize_networks()
 
   def initialize_childProcess(self):
@@ -147,9 +154,9 @@ class VideoTagger:
       log.critical("Could not open video: {}".format(fileName))
       return "Unable to open video", None
 
-    self.videoWidth = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    self.videoHeight = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    self.videoFps = cap.get(cv2.CAP_PROP_FPS)
+    self.videoWidth = self.state.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    self.videoHeight = self.state.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    self.videoFps = self.state.fps = cap.get(cv2.CAP_PROP_FPS)
     # perform the down-scale step
     donwScaleFactor = 1
     predDonwScaleFactor = 1
@@ -181,13 +188,14 @@ class VideoTagger:
     self.loop(cap)
     # batchRecognize if the pipline is not running in parallel
     if not self.config.PARALLEL:
-      od_results, caption_results = self.batchRecognize()
-      self.state.objectDetectionResults = od_results
-      self.state.captioningResults = caption_results
+      # od_results, caption_results = self.batchRecognize()
+      # self.state.objectDetectionResults = od_results
+      # self.state.captioningResults = caption_results
+      self.parseFramesBuffer()
 
     # Cleanup and return parse state.
     cap.release()
-    return None, self.state
+    return None, self.state, self.frameParseResults
 
   def loop(self, cap):
     skip = 0
@@ -287,9 +295,34 @@ class VideoTagger:
         cv2.imshow("detection", img)
         cv2.waitKey(5)
     else:
-      self.framesTobeParsed.append(dominateFrame)
-      self.framesTobeParsedIdx.append(frameNumber)
+      self.sceneFrameStoreMethod(dominateFrame, frameNumber)
     # should save the frame(s) to filesystem
+
+    def sceneFrameStoreMethod(frame, frameNum):
+      self.framesTobeParsed.append(frame)
+      self.framesTobeParsedIdx.append(frameNum)
+      if len(self.framesTobeParsed) >= self.config.max_buffer_frames_count:
+        self.parseFramesBuffer()
+
+    # parse temperarly saved frames
+    def parseFramesBuffer():
+      if len(self.framesTobeParsed) < 1:
+        return
+      log.info("frames to be recognized in buffer: {}".format(len(self.framesTobeParsed)))
+      od_results = self.objectDetector.parse(self.framesTobeParsed)
+      caption_results = batch_im2txt.parse(self.framesTobeParsed)
+      for idx, frameNum in enumerate(self.framesTobeParsedIdx):
+        self.frameParseResults.append({
+          "frame": frameNum,
+          "objects": od_results[idx],
+          "captions": caption_results[idx]
+        })
+        # should save thumnail image and faces
+        print("saving thumnail images")
+
+      # empty the buffer list
+      self.framesTobeParsed = []
+      self.framesTobeParsedIdx = []
 
   def batchRecognize(self):
     log.info("frames to be recognized: {}".format(len(self.framesTobeParsed)))
